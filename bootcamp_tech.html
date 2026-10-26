@@ -228,8 +228,299 @@
         </div>
     </div>
 
+    <!-- LocalStorage & App Logic -->
+    <script>
+        // Application State Management
+        window.appState = {
+            isAdminAuthenticated: false,
+            galleryData: [],
+            logsData: [],
+            userId: 'admin_demo',
+
+            // Navigation Controller
+            navigate: function(viewId) {
+                if (viewId === 'admin' && !this.isAdminAuthenticated) {
+                    this.showModal("Akses Ditolak", "Anda harus login untuk mengakses dashboard admin.", false);
+                    viewId = 'login';
+                }
+
+                // Hide all views
+                document.getElementById('view-landing').classList.add('hidden');
+                document.getElementById('view-login').classList.add('hidden');
+                document.getElementById('view-admin').classList.add('hidden');
+                
+                // Show target view
+                document.getElementById(`view-${viewId}`).classList.remove('hidden');
+
+                // Update Nav Buttons
+                if (this.isAdminAuthenticated) {
+                    document.getElementById('nav-login-btn').classList.add('hidden');
+                    document.getElementById('nav-admin-btn').classList.remove('hidden');
+                    document.getElementById('nav-logout-btn').classList.remove('hidden');
+                } else {
+                    document.getElementById('nav-login-btn').classList.remove('hidden');
+                    document.getElementById('nav-admin-btn').classList.add('hidden');
+                    document.getElementById('nav-logout-btn').classList.add('hidden');
+                }
+
+                window.scrollTo(0,0);
+            },
+
+            // Admin Tab Switcher
+            switchAdminTab: function(tab) {
+                document.getElementById('tab-gallery').className = 'w-full text-left px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition';
+                document.getElementById('tab-logs').className = 'w-full text-left px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition';
+                document.getElementById(`tab-${tab}`).className = 'w-full text-left px-4 py-2 rounded-lg bg-indigo-50 text-indigo-700 font-medium transition';
+
+                document.getElementById('admin-tab-gallery').classList.add('hidden');
+                document.getElementById('admin-tab-logs').classList.add('hidden');
+                document.getElementById(`admin-tab-${tab}`).classList.remove('hidden');
+            },
+
+            // Login Hardcode Logic
+            handleLogin: function(e) {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const errDiv = document.getElementById('login-error');
+
+                // Hardcoded Credentials
+                if (email === 'admin@demo.com' && password === 'admin123') {
+                    errDiv.classList.add('hidden');
+                    this.isAdminAuthenticated = true;
+                    
+                    this.createLog("LOGIN", "Admin berhasil masuk ke sistem");
+                    
+                    document.getElementById('login-form').reset();
+                    this.navigate('admin');
+                    this.showModal("Selamat Datang", "Login berhasil. Anda sekarang di Dashboard Admin.", true);
+                } else {
+                    errDiv.textContent = "Kredensial salah. Gunakan email: admin@demo.com dan password: admin123";
+                    errDiv.classList.remove('hidden');
+                }
+            },
+
+            logout: function() {
+                this.isAdminAuthenticated = false;
+                this.createLog("LOGOUT", "Admin keluar dari sistem");
+                this.navigate('landing');
+                this.showModal("Logout Berhasil", "Anda telah keluar dari sesi admin.", true);
+            },
+
+            // Modal Controller
+            showModal: function(title, message, isSuccess = true) {
+                document.getElementById('modal-title').textContent = title;
+                document.getElementById('modal-message').textContent = message;
+                
+                const iconContainer = document.getElementById('modal-icon-container');
+                const icon = document.getElementById('modal-icon');
+                
+                if (isSuccess) {
+                    iconContainer.className = "flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mx-auto mb-4";
+                    icon.className = "w-6 h-6 text-green-600";
+                    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+                } else {
+                    iconContainer.className = "flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4";
+                    icon.className = "w-6 h-6 text-red-600";
+                    icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>';
+                }
+
+                const modal = document.getElementById('notification-modal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            },
+
+            closeModal: function() {
+                const modal = document.getElementById('notification-modal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            },
+
+            // =============== LOCAL STORAGE CRUD LOGIC ===============
+            
+            saveData: function() {
+                localStorage.setItem('techcamp_gallery', JSON.stringify(this.galleryData));
+                localStorage.setItem('techcamp_logs', JSON.stringify(this.logsData));
+            },
+
+            loadData: function() {
+                const savedGallery = localStorage.getItem('techcamp_gallery');
+                const savedLogs = localStorage.getItem('techcamp_logs');
+                if(savedGallery) this.galleryData = JSON.parse(savedGallery);
+                if(savedLogs) this.logsData = JSON.parse(savedLogs);
+            },
+
+            // Create Log Entry
+            createLog: function(action, details) {
+                this.logsData.push({
+                    id: Date.now().toString(),
+                    action: action,
+                    details: details,
+                    timestamp: Date.now(),
+                    actor: this.userId
+                });
+                this.saveData();
+                this.renderLogs();
+            },
+
+            // Add Image
+            handleAddImage: function(e) {
+                e.preventDefault();
+                if (!this.isAdminAuthenticated) return;
+
+                const urlInput = document.getElementById('img-url');
+                const captionInput = document.getElementById('img-caption');
+                const url = urlInput.value;
+                const caption = captionInput.value;
+
+                const newImage = {
+                    id: Date.now().toString(),
+                    imageUrl: url,
+                    caption: caption,
+                    timestamp: Date.now()
+                };
+
+                this.galleryData.push(newImage);
+                this.createLog("CREATE_IMAGE", `Menambahkan gambar: "${caption}"`);
+                
+                this.saveData();
+                this.renderGallery();
+                this.showModal("Berhasil", "Gambar telah ditambahkan ke galeri.", true);
+                
+                urlInput.value = '';
+                captionInput.value = '';
+            },
+
+            // Delete Image
+            deleteImage: function(docId, caption) {
+                if (!this.isAdminAuthenticated) return;
+                
+                this.galleryData = this.galleryData.filter(item => item.id !== docId);
+                this.createLog("DELETE_IMAGE", `Menghapus gambar: "${caption}"`);
+                
+                this.saveData();
+                this.renderGallery();
+                this.showModal("Berhasil", "Gambar telah dihapus.", true);
+            },
+
+            // Render Gallery
+            renderGallery: function() {
+                const landingContainer = document.getElementById('landing-gallery-container');
+                const adminList = document.getElementById('admin-gallery-list');
+                const countSpan = document.getElementById('gallery-count');
+                
+                landingContainer.innerHTML = '';
+                
+                if (this.galleryData.length === 0) {
+                    landingContainer.innerHTML = '<p class="text-center col-span-full text-gray-500 py-10 bg-gray-100 rounded-lg border border-dashed border-gray-300">Belum ada gambar di galeri.</p>';
+                    adminList.innerHTML = '<p class="text-center text-gray-500 bg-gray-50 p-4 rounded border border-dashed">Galeri kosong.</p>';
+                    countSpan.textContent = '0';
+                    return;
+                }
+
+                countSpan.textContent = this.galleryData.length;
+                adminList.innerHTML = '';
+
+                // Sort terbaru di atas
+                const sortedGallery = [...this.galleryData].sort((a, b) => b.timestamp - a.timestamp);
+
+                sortedGallery.forEach(item => {
+                    // Item Landing
+                    const landItem = document.createElement('div');
+                    landItem.className = 'group relative overflow-hidden rounded-xl shadow cursor-pointer bg-white';
+                    landItem.innerHTML = `
+                        <img src="${this.escapeHTML(item.imageUrl)}" onerror="this.src='https://placehold.co/400x400/eeeeee/999999?text=Image+Error'" class="w-full h-48 object-cover transform group-hover:scale-110 transition duration-500" alt="${this.escapeHTML(item.caption)}">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end">
+                            <p class="text-white font-medium p-4">${this.escapeHTML(item.caption)}</p>
+                        </div>
+                    `;
+                    landingContainer.appendChild(landItem);
+
+                    // Item Admin
+                    const adminItem = document.createElement('div');
+                    adminItem.className = 'flex items-center justify-between bg-white p-4 border rounded-lg shadow-sm hover:shadow transition';
+                    adminItem.innerHTML = `
+                        <div class="flex items-center space-x-4 overflow-hidden">
+                            <img src="${this.escapeHTML(item.imageUrl)}" onerror="this.src='https://placehold.co/100x100/eeeeee/999999?text=Err'" class="w-16 h-16 object-cover rounded shadow-sm flex-shrink-0">
+                            <div class="truncate">
+                                <p class="font-bold text-gray-800 truncate">${this.escapeHTML(item.caption)}</p>
+                                <a href="${this.escapeHTML(item.imageUrl)}" target="_blank" class="text-xs text-indigo-500 hover:underline truncate inline-block max-w-xs">Lihat URL</a>
+                            </div>
+                        </div>
+                        <button onclick="appState.deleteImage('${item.id}', '${this.escapeHTML(item.caption.replace(/'/g, "\\'"))}')" class="bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-lg transition ml-4 flex-shrink-0" title="Hapus">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    `;
+                    adminList.appendChild(adminItem);
+                });
+            },
+
+            // Render Logs
+            renderLogs: function() {
+                const tbody = document.getElementById('logs-table-body');
+                tbody.innerHTML = '';
+
+                if (this.logsData.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-gray-500 italic">Belum ada log aktivitas.</td></tr>';
+                    return;
+                }
+
+                const sortedLogs = [...this.logsData].sort((a, b) => b.timestamp - a.timestamp);
+
+                sortedLogs.forEach(log => {
+                    const date = new Date(log.timestamp).toLocaleString('id-ID', {
+                        year: 'numeric', month: 'short', day: 'numeric',
+                        hour: '2-digit', minute:'2-digit', second:'2-digit'
+                    });
+                    
+                    let actionColor = 'text-gray-600 bg-gray-100';
+                    if (log.action.includes('CREATE')) actionColor = 'text-green-700 bg-green-100';
+                    if (log.action.includes('DELETE')) actionColor = 'text-red-700 bg-red-100';
+                    if (log.action === 'LOGIN') actionColor = 'text-blue-700 bg-blue-100';
+
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b hover:bg-gray-50 transition';
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 whitespace-nowrap text-xs text-gray-500">${date}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-1 text-xs font-bold rounded-full ${actionColor}">${this.escapeHTML(log.action)}</span>
+                        </td>
+                        <td class="py-3 px-4 text-gray-800">${this.escapeHTML(log.details)}</td>
+                        <td class="py-3 px-4 text-xs text-gray-400 font-mono">${log.actor}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+
+            escapeHTML: function(str) {
+                if (!str) return '';
+                return str.replace(/[&<>'"]/g, 
+                    tag => ({
+                        '&': '&amp;',
+                        '<': '&lt;',
+                        '>': '&gt;',
+                        "'": '&#39;',
+                        '"': '&quot;'
+                    }[tag])
+                );
+            }
+        };
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', () => {
+            appState.loadData(); // Muat data dari browser
+            
+            if(appState.logsData.length === 0) {
+                 appState.createLog("SYSTEM", "Aplikasi dimulai dengan LocalStorage");
+            }
+
+            appState.renderGallery();
+            appState.renderLogs();
+            appState.navigate('landing'); // Default view
+        });
+    </script>
     <!-- Firebase & App Logic -->
-    <script type="module">
+    <!-- <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -588,6 +879,6 @@
             appState.navigate('landing'); // Default view
         });
 
-    </script>
+    </script> -->
 </body>
 </html>
